@@ -9,7 +9,7 @@ import com.android.internal.telephony.IHwTelephony;
 import com.android.internal.telephony.IHwTelephony.Stub;
 
 public class HwTelephonyManager {
-    private static HwTelephonyManager sInstance;
+    private static HwTelephonyManager sInstance = new HwTelephonyManager();
 
     public static HwTelephonyManager getDefault() {
         return sInstance;
