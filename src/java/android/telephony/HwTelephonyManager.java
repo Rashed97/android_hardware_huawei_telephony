@@ -6,11 +6,19 @@ import android.os.Parcel;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemProperties;
+import android.text.TextUtils;
 import android.util.Log;
+import com.android.internal.telephony.HwModemCapability;
 import com.android.internal.telephony.IHwTelephony;
 import com.android.internal.telephony.IHwTelephony.Stub;
 
 public class HwTelephonyManager {
+    public static final String CARD_TYPE_SIM1 = "gsm.sim1.type";
+    public static final String CARD_TYPE_SIM2 = "gsm.sim2.type";
+    private static final String[] CDMA_CPLMNS = new String[]{"46003", "45502", "46012"};
+    public static final int DUAL_MODE_TELECOM_LTE_CARD = 43;
+    private static final String GC_ICCID = "8985231";
+    private static final String PROP_VALUE_C_CARD_PLMN = "gsm.sim.c_card.plmn";
     private static final String TAG = "HwTelephonyManager";
     private static HwTelephonyManager sInstance = new HwTelephonyManager();
 
@@ -25,6 +33,91 @@ public class HwTelephonyManager {
         }
         Log.e(TAG, "getIHwTelephony failed!");
         throw new RemoteException("getIHwTelephony return null");
+    }
+
+    public boolean isCTSimCard(int slotId) {
+        boolean isCTCardType;
+        boolean result;
+        int cardType = getCardType(slotId);
+        Rlog.d(TAG, "[isCTSimCard]: cardType = " + cardType);
+        switch (cardType) {
+            case 30:
+            case 41:
+            case DUAL_MODE_TELECOM_LTE_CARD /*43*/:
+                isCTCardType = true;
+                break;
+            default:
+                isCTCardType = false;
+                break;
+        }
+        if (!isCTCardType || (HwModemCapability.isCapabilitySupport(9) ^ true) == false) {
+            result = isCTCardType;
+        } else {
+            boolean isCdmaCplmn = false;
+            String cplmn = getCplmn(slotId);
+            String[] strArr = CDMA_CPLMNS;
+            int i = 0;
+            int length = strArr.length;
+            while (i < length) {
+                if (strArr[i].equals(cplmn)) {
+                    isCdmaCplmn = true;
+                    Rlog.d(TAG, "[isCTSimCard]: hisi cdma  isCdmaCplmn = " + isCdmaCplmn);
+                    result = isCdmaCplmn;
+                    if (TextUtils.isEmpty(cplmn)) {
+                        try {
+                            result = getIHwTelephony().isCtSimCard(slotId);
+                        } catch (RemoteException ex) {
+                            ex.printStackTrace();
+                        }
+                    }
+                    Rlog.d(TAG, "[isCTSimCard]: hisi cdma  isCdmaCplmn according iccid = " + result);
+                } else {
+                    i++;
+                }
+            }
+            Rlog.d(TAG, "[isCTSimCard]: hisi cdma  isCdmaCplmn = " + isCdmaCplmn);
+            result = isCdmaCplmn;
+            if (TextUtils.isEmpty(cplmn)) {
+                try {
+                    result = getIHwTelephony().isCtSimCard(slotId);
+                } catch (RemoteException ex) {
+                    ex.printStackTrace();
+                }
+            }
+            Rlog.d(TAG, "[isCTSimCard]: hisi cdma  isCdmaCplmn according iccid = " + result);
+        }
+        if (result) {
+            String preIccid = SystemProperties.get("gsm.sim.preiccid_" + slotId, "");
+            if (GC_ICCID.equals(preIccid)) {
+                result = false;
+                Rlog.d(TAG, "Hongkong GC card is not CT card:" + preIccid);
+            }
+        }
+        Rlog.d(TAG, "[isCTSimCard]: result = " + result);
+        return result;
+    }
+
+    private String getCplmn(int slotId) {
+        String result = "";
+        String value = SystemProperties.get(PROP_VALUE_C_CARD_PLMN, "");
+        if (!(value == null || ("".equals(value) ^ true) == false)) {
+            String[] substr = value.split(",");
+            if (substr.length == 2 && Integer.parseInt(substr[1]) == slotId) {
+                result = substr[0];
+            }
+        }
+        Rlog.d(TAG, "getCplmn for Slot : " + slotId + " result is : " + result);
+        return result;
+    }
+
+    public int getCardType(int slotId) {
+        if (slotId == 0) {
+            return SystemProperties.getInt(CARD_TYPE_SIM1, -1);
+        }
+        if (slotId == 1) {
+            return SystemProperties.getInt(CARD_TYPE_SIM2, -1);
+        }
+        return -1;
     }
 
     public void setDefaultDataSlotId(int slotId) {
