@@ -110,6 +110,20 @@ public class HwTelephonyManager {
         return result;
     }
 
+    public boolean isCDMASimCard(int slotId) {
+        int cardType = getCardType(slotId);
+        Rlog.d(TAG, "[isCDMASimCard]: cardType = " + cardType);
+        switch (cardType) {
+            case 30:
+            case 40:
+            case 41:
+            case DUAL_MODE_TELECOM_LTE_CARD /*43*/:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     public int getCardType(int slotId) {
         if (slotId == 0) {
             return SystemProperties.getInt(CARD_TYPE_SIM1, -1);
@@ -169,5 +183,19 @@ public class HwTelephonyManager {
         strATR = strATR + "," + SystemProperties.get("gsm.sim.hw_atr1", "null");
         Rlog.d(TAG, "getIccATR: [" + strATR + "]");
         return strATR;
+    }
+
+    public boolean isDataConnectivityDisabled(int slotId, String tag) {
+/*
+        Bundle bundle = this.mDpm.getPolicy(null, tag);
+        boolean allow = false;
+        if (bundle != null) {
+            allow = bundle.getBoolean("value");
+        }
+        if (allow && 1 == slotId) {
+            return true;
+        }
+*/
+        return false;
     }
 }
